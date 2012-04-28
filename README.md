@@ -1,6 +1,6 @@
 # node-botan
 
- A fully asynchronous wrapper of the Botan crypto library for Node JS
+ A fully asynchronous wrapper of the Botan crypto library for Node JS.
 
 ## Installation
 
