@@ -1,15 +1,17 @@
 # node-botan
 
- A fully asynchronous wrapper of the Botan crypto library for Node JS.
+ A fully asynchronous wrapper of the [Botan](http://botan.randombit.net/) crypto library for Node JS.
 
 ## Installation
+
+First, install Botan as described here http://botan.randombit.net/building.html, then simply:
 
     npm install botan
 
 ## Features
 
   - Asynchronous public key, cipher, mac, PBKDF, hash, codec, and rand function support
-  - Wraps Botan version 1.10 (http://botan.randombit.net/)
+  - Wraps [Botan](http://botan.randombit.net/) version 1.10
 
 ## Author
 
