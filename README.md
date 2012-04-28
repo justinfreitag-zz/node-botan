@@ -8,7 +8,7 @@
 
 ## Features
 
-  - Asynchronous public key, cipher, hash, mac, codec function support
+  - Asynchronous public key, cipher, mac, PBKDF, hash, codec, and rand function support
   - Wraps Botan version 1.10 (http://botan.randombit.net/)
 
 ## Author
