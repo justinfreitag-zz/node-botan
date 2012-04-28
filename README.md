@@ -1,7 +1,10 @@
-
-# Node Botan
+# node-botan
 
  A fully asynchronous wrapper of the Botan crypto library.
+
+## Installation
+
+    npm install botan
 
 ## Features
 
