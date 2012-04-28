@@ -14,5 +14,5 @@ scripts:
   test: 'mocha -t 30000 -R list -r should test/node-botan-test'
 engines:
   node: '~0.6'
-private: on
+
 
