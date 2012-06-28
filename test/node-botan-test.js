@@ -215,7 +215,7 @@ describe('RSA key functions', function() {
       });
     });
   });
-/*
+
   it('should encrypt/decrypt using AES-256/CTR-BE and produce HMAC(SHA-512)', function(done) {
     cr.initialiseEncryptor("AES-256/CTR-BE", "HMAC(SHA-512)", cipherKey, function(error, encryptor, iv) {
       should.not.exist(error);
@@ -838,5 +838,4 @@ describe('Random functions', function() {
     (function() { cr.generateRandomBytes('myrhh', 20, function(error, bytes) {}); }).should.throw();
     done();
   });
-*/
 });
