@@ -9,13 +9,16 @@
 #include <botan/rsa.h>
 #include <botan/pubkey.h>
 
+namespace node_botan {
+
 class Baton {
   public:
     v8::Persistent<v8::Function> callback;
     std::string *error;
 
     Baton(v8::Local<v8::Value> callback) {
-      this->callback = v8::Persistent<v8::Function>::New(v8::Local<v8::Function>::Cast(callback));
+      this->callback =
+        v8::Persistent<v8::Function>::New(v8::Local<v8::Function>::Cast(callback));
       error = NULL;
     }
 
@@ -30,8 +33,8 @@ namespace pk {
   static const size_t DEFAULT_KEY_SIZE = 2048;
 
   static v8::Handle<v8::Value> Generate(const v8::Arguments &args);
-  static void EIO_Generate(eio_req *request);
-  static int EIO_AfterGenerate(eio_req *request);
+  static void DoingGenerate(uv_work_t *request);
+  static void AfterGenerate(uv_work_t *request);
 
   class GenerateBaton : public Baton {
     public:
@@ -43,8 +46,8 @@ namespace pk {
   };
 
   static v8::Handle<v8::Value> LoadPublicKey(const v8::Arguments &args);
-  static void EIO_LoadPublicKey(eio_req *request);
-  static int EIO_AfterLoadPublicKey(eio_req *request);
+  static void DoingLoadPublicKey(uv_work_t *request);
+  static void AfterLoadPublicKey(uv_work_t *request);
 
   class LoadPublicKeyBaton : public Baton {
     public:
@@ -66,12 +69,12 @@ namespace pk {
 
     protected:
       static v8::Handle<v8::Value> Encrypt(const v8::Arguments &args);
-      static void EIO_Encrypt(eio_req *request);
-      static int EIO_AfterEncrypt(eio_req *request);
+      static void DoingEncrypt(uv_work_t *request);
+      static void AfterEncrypt(uv_work_t *request);
 
       static v8::Handle<v8::Value> ToString(const v8::Arguments &args);
-      static void EIO_ToString(eio_req *request);
-      static int EIO_AfterToString(eio_req *request);
+      static void DoingToString(uv_work_t *request);
+      static void AfterToString(uv_work_t *request);
 
     private:
       ~PublicKey();
@@ -112,12 +115,12 @@ namespace pk {
   static const std::string PBKDF_TYPE = "PBKDF2(SHA-256)";
   static const size_t IV_SIZE = 16;
   static const size_t PBKDF_SIZE = 32;
-  static const uint32_t PBKDF_ITERATIONS = 30000;
+  static const uint32_t PBKDF_ITERATIONS = 50000;
   static const std::string CIPHER_TYPE = "AES-256/EAX";
 
   static v8::Handle<v8::Value> LoadPrivateKey(const v8::Arguments &args);
-  static void EIO_LoadPrivateKey(eio_req *request);
-  static int EIO_AfterLoadPrivateKey(eio_req *request);
+  static void DoingLoadPrivateKey(uv_work_t *request);
+  static void AfterLoadPrivateKey(uv_work_t *request);
 
   class LoadPrivateKeyBaton : public Baton {
     public:
@@ -150,12 +153,12 @@ namespace pk {
 
     protected:
       static v8::Handle<v8::Value> Decrypt(const v8::Arguments &args);
-      static void EIO_Decrypt(eio_req *request);
-      static int EIO_AfterDecrypt(eio_req *request);
+      static void DoingDecrypt(uv_work_t *request);
+      static void AfterDecrypt(uv_work_t *request);
 
       static v8::Handle<v8::Value> ToString(const v8::Arguments &args);
-      static void EIO_ToString(eio_req *request);
-      static int EIO_AfterToString(eio_req *request);
+      static void DoingToString(uv_work_t *request);
+      static void AfterToString(uv_work_t *request);
 
     private:
       ~PrivateKey();
@@ -214,8 +217,8 @@ namespace cipher {
   static const std::string IV_MAC_TYPE = "HMAC(SHA-256)";
 
   static v8::Handle<v8::Value> Encrypt(const v8::Arguments &args);
-  static void EIO_Encrypt(eio_req *request);
-  static int EIO_AfterEncrypt(eio_req *request);
+  static void DoingEncrypt(uv_work_t *request);
+  static void AfterEncrypt(uv_work_t *request);
 
   class EncryptBaton : public Baton {
     public:
@@ -262,8 +265,8 @@ namespace cipher {
   };
 
   static v8::Handle<v8::Value> Decrypt(const v8::Arguments &args);
-  static void EIO_Decrypt(eio_req *request);
-  static int EIO_AfterDecrypt(eio_req *request);
+  static void DoingDecrypt(uv_work_t *request);
+  static void AfterDecrypt(uv_work_t *request);
 
   class DecryptBaton : public Baton {
     public:
@@ -310,8 +313,8 @@ namespace cipher {
   };
 
   static v8::Handle<v8::Value> InitialiseEncryptor(const v8::Arguments &args);
-  static void EIO_InitialiseEncryptor(eio_req *request);
-  static int EIO_AfterInitialiseEncryptor(eio_req *request);
+  static void DoingInitialiseEncryptor(uv_work_t *request);
+  static void AfterInitialiseEncryptor(uv_work_t *request);
 
   static const std::string DEFAULT_CIPHER_TYPE = "AES-256/EAX";
 
@@ -347,12 +350,12 @@ namespace cipher {
 
     protected:
       static v8::Handle<v8::Value> Update(const v8::Arguments &args);
-      static void EIO_Update(eio_req *request);
-      static int EIO_AfterUpdate(eio_req *request);
+      static void DoingUpdate(uv_work_t *request);
+      static void AfterUpdate(uv_work_t *request);
 
       static v8::Handle<v8::Value> Final(const v8::Arguments &args);
-      static void EIO_Final(eio_req *request);
-      static int EIO_AfterFinal(eio_req *request);
+      static void DoingFinal(uv_work_t *request);
+      static void AfterFinal(uv_work_t *request);
 
     private:
       ~Encryptor();
@@ -394,8 +397,8 @@ namespace cipher {
   };
 
   static v8::Handle<v8::Value> InitialiseDecryptor(const v8::Arguments &args);
-  static void EIO_InitialiseDecryptor(eio_req *request);
-  static int EIO_AfterInitialiseDecryptor(eio_req *request);
+  static void DoingInitialiseDecryptor(uv_work_t *request);
+  static void AfterInitialiseDecryptor(uv_work_t *request);
 
   class InitialiseDecryptorBaton : public Baton {
     public:
@@ -429,12 +432,12 @@ namespace cipher {
 
     protected:
       static v8::Handle<v8::Value> Update(const v8::Arguments &args);
-      static void EIO_Update(eio_req *request);
-      static int EIO_AfterUpdate(eio_req *request);
+      static void DoingUpdate(uv_work_t *request);
+      static void AfterUpdate(uv_work_t *request);
 
       static v8::Handle<v8::Value> Final(const v8::Arguments &args);
-      static void EIO_Final(eio_req *request);
-      static int EIO_AfterFinal(eio_req *request);
+      static void DoingFinal(uv_work_t *request);
+      static void AfterFinal(uv_work_t *request);
 
     private:
       ~Decryptor();
@@ -484,8 +487,8 @@ namespace codec {
   static v8::Handle<v8::Value> EncodeSync(const v8::Arguments &args);
 
   static v8::Handle<v8::Value> Encode(const v8::Arguments &args);
-  static void EIO_Encode(eio_req *request);
-  static int EIO_AfterEncode(eio_req *request);
+  static void DoingEncode(uv_work_t *request);
+  static void AfterEncode(uv_work_t *request);
 
   class EncodeBaton : public Baton {
     public:
@@ -507,8 +510,8 @@ namespace codec {
   static v8::Handle<v8::Value> DecodeSync(const v8::Arguments &args);
 
   static v8::Handle<v8::Value> Decode(const v8::Arguments &args);
-  static void EIO_Decode(eio_req *request);
-  static int EIO_AfterDecode(eio_req *request);
+  static void DoingDecode(uv_work_t *request);
+  static void AfterDecode(uv_work_t *request);
 
   class DecodeBaton : public Baton {
     public:
@@ -532,8 +535,8 @@ namespace codec {
 namespace mac {
 
   static v8::Handle<v8::Value> Generate(const v8::Arguments &args);
-  static void EIO_Generate(eio_req *request);
-  static int EIO_AfterGenerate(eio_req *request);
+  static void DoingGenerate(uv_work_t *request);
+  static void AfterGenerate(uv_work_t *request);
 
   class GenerateBaton : public Baton {
     public:
@@ -558,8 +561,8 @@ namespace mac {
   };
 
   static v8::Handle<v8::Value> Initialise(const v8::Arguments &args);
-  static void EIO_Initialise(eio_req *request);
-  static int EIO_AfterInitialise(eio_req *request);
+  static void DoingInitialise(uv_work_t *request);
+  static void AfterInitialise(uv_work_t *request);
 
   class InitialiseBaton : public Baton {
     public:
@@ -584,12 +587,12 @@ namespace mac {
 
     protected:
       static v8::Handle<v8::Value> Update(const v8::Arguments &args);
-      static void EIO_Update(eio_req *request);
-      static int EIO_AfterUpdate(eio_req *request);
+      static void DoingUpdate(uv_work_t *request);
+      static void AfterUpdate(uv_work_t *request);
 
       static v8::Handle<v8::Value> Final(const v8::Arguments &args);
-      static void EIO_Final(eio_req *request);
-      static int EIO_AfterFinal(eio_req *request);
+      static void DoingFinal(uv_work_t *request);
+      static void AfterFinal(uv_work_t *request);
 
     private:
       ~Mac();
@@ -629,8 +632,8 @@ namespace mac {
 namespace hash {
 
   static v8::Handle<v8::Value> Generate(const v8::Arguments &args);
-  static void EIO_Generate(eio_req *request);
-  static int EIO_AfterGenerate(eio_req *request);
+  static void DoingGenerate(uv_work_t *request);
+  static void AfterGenerate(uv_work_t *request);
 
   class GenerateBaton : public Baton {
     public:
@@ -652,8 +655,8 @@ namespace hash {
   };
 
   static v8::Handle<v8::Value> Initialise(const v8::Arguments &args);
-  static void EIO_Initialise(eio_req *request);
-  static int EIO_AfterInitialise(eio_req *request);
+  static void DoingInitialise(uv_work_t *request);
+  static void AfterInitialise(uv_work_t *request);
 
   class InitialiseBaton : public Baton {
     public:
@@ -675,12 +678,12 @@ namespace hash {
 
     protected:
       static v8::Handle<v8::Value> Update(const v8::Arguments &args);
-      static void EIO_Update(eio_req *request);
-      static int EIO_AfterUpdate(eio_req *request);
+      static void DoingUpdate(uv_work_t *request);
+      static void AfterUpdate(uv_work_t *request);
 
       static v8::Handle<v8::Value> Final(const v8::Arguments &args);
-      static void EIO_Final(eio_req *request);
-      static int EIO_AfterFinal(eio_req *request);
+      static void DoingFinal(uv_work_t *request);
+      static void AfterFinal(uv_work_t *request);
 
     private:
       ~Hash();
@@ -724,8 +727,8 @@ namespace pbkdf {
   static const uint32_t DEFAULT_ITERATIONS = 30000;
 
   static v8::Handle<v8::Value> Generate(const v8::Arguments &args);
-  static void EIO_Generate(eio_req *request);
-  static int EIO_AfterGenerate(eio_req *request);
+  static void DoingGenerate(uv_work_t *request);
+  static void AfterGenerate(uv_work_t *request);
 
   class GenerateBaton : public Baton {
     public:
@@ -755,8 +758,8 @@ namespace pbkdf {
 namespace rnd {
 
   static v8::Handle<v8::Value> GenerateDigits(const v8::Arguments &args);
-  static void EIO_GenerateDigits(eio_req *request);
-  static int EIO_AfterGenerateDigits(eio_req *request);
+  static void DoingGenerateDigits(uv_work_t *request);
+  static void AfterGenerateDigits(uv_work_t *request);
 
   class GenerateDigitsBaton : public Baton {
     public:
@@ -773,8 +776,8 @@ namespace rnd {
   };
 
   static v8::Handle<v8::Value> GenerateBytes(const v8::Arguments &args);
-  static void EIO_GenerateBytes(eio_req *request);
-  static int EIO_AfterGenerateBytes(eio_req *request);
+  static void DoingGenerateBytes(uv_work_t *request);
+  static void AfterGenerateBytes(uv_work_t *request);
 
   enum ByteType { binary, base64, hex };
 
@@ -797,5 +800,9 @@ namespace rnd {
   };
 
 }
+
+void init(v8::Handle<v8::Object> target);
+
+} // namespace node_botan
 
 #endif

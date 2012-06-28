@@ -1,16 +1,6 @@
-make: all
-
-all: waf test
-
-waf:
-	node-waf configure build
-
-debug:
-	node-waf configure --debug=true build
-
-test:
-	@mocha /test/node-botan-test.js
+build:
+	node-gyp build
 
 clean:
-	@rm -rf ./build
+	node-gyp clean
 

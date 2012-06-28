@@ -15,6 +15,8 @@
 #define THROW_BAD_ARGS \
   THROW_TYPE_ERROR("Bad argument/s")
 
+namespace node_botan {
+
 using namespace v8;
 using namespace node;
 using namespace Botan;
@@ -28,7 +30,7 @@ using namespace pbkdf;
 using namespace rnd;
 
 SecureVector<byte> *toSecureVector(Local<Value> object) {
-  SecureVector<byte> *secureVector;
+  SecureVector<byte> *secureVector = NULL;
   if (object->IsString()) {
     String::Utf8Value string(object->ToString());
     secureVector = new SecureVector<byte>((byte *) *string, string.length());
@@ -92,13 +94,14 @@ Handle<Value> pk::Generate(const Arguments &args) {
   else
     baton->keySize = args[0]->NumberValue();
 
-  eio_custom(EIO_Generate, EIO_PRI_DEFAULT, EIO_AfterGenerate, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingGenerate, AfterGenerate);
 
   return scope.Close(Undefined());
 }
 
-void pk::EIO_Generate(eio_req *request) {
+void pk::DoingGenerate(uv_work_t *request) {
   GenerateBaton *baton = static_cast<GenerateBaton *>(request->data);
 
   try {
@@ -111,10 +114,8 @@ void pk::EIO_Generate(eio_req *request) {
   }
 }
 
-int pk::EIO_AfterGenerate(eio_req *request) {
+void pk::AfterGenerate(uv_work_t *request) {
   GenerateBaton *baton = static_cast<GenerateBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> publicKey = Null();
@@ -140,8 +141,7 @@ int pk::EIO_AfterGenerate(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> pk::LoadPublicKey(const Arguments &args) {
@@ -153,13 +153,14 @@ Handle<Value> pk::LoadPublicKey(const Arguments &args) {
   LoadPublicKeyBaton *baton = new LoadPublicKeyBaton(args[1]);
   baton->publicKeyString = toString(args[0]);
 
-  eio_custom(EIO_LoadPublicKey, EIO_PRI_DEFAULT, EIO_AfterLoadPublicKey, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingLoadPublicKey, AfterLoadPublicKey);
 
   return scope.Close(Undefined());
 }
 
-void pk::EIO_LoadPublicKey(eio_req *request) {
+void pk::DoingLoadPublicKey(uv_work_t *request) {
   LoadPublicKeyBaton *baton = static_cast<LoadPublicKeyBaton *>(request->data);
 
   try {
@@ -177,10 +178,8 @@ void pk::EIO_LoadPublicKey(eio_req *request) {
   }
 }
 
-int pk::EIO_AfterLoadPublicKey(eio_req *request) {
+void pk::AfterLoadPublicKey(uv_work_t *request) {
   LoadPublicKeyBaton *baton = static_cast<LoadPublicKeyBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> publicKey = Null();
@@ -199,8 +198,7 @@ int pk::EIO_AfterLoadPublicKey(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> pk::LoadPrivateKey(const Arguments &args) {
@@ -216,13 +214,14 @@ Handle<Value> pk::LoadPrivateKey(const Arguments &args) {
   baton->iv = toString(args[2]);
   baton->passphrase = toString(args[3]);
 
-  eio_custom(EIO_LoadPrivateKey, EIO_PRI_DEFAULT, EIO_AfterLoadPrivateKey, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingLoadPrivateKey, AfterLoadPrivateKey);
 
   return scope.Close(Undefined());
 }
 
-void pk::EIO_LoadPrivateKey(eio_req *request) {
+void pk::DoingLoadPrivateKey(uv_work_t *request) {
   LoadPrivateKeyBaton *baton = static_cast<LoadPrivateKeyBaton *>(request->data);
 
   try {
@@ -256,10 +255,8 @@ void pk::EIO_LoadPrivateKey(eio_req *request) {
   }
 }
 
-int pk::EIO_AfterLoadPrivateKey(eio_req *request) {
+void pk::AfterLoadPrivateKey(uv_work_t *request) {
   LoadPrivateKeyBaton *baton = static_cast<LoadPrivateKeyBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> privateKey = Null();
@@ -278,8 +275,7 @@ int pk::EIO_AfterLoadPrivateKey(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> PublicKey::ToString(const Arguments &args) {
@@ -290,13 +286,15 @@ Handle<Value> PublicKey::ToString(const Arguments &args) {
   PublicKeyToStringBaton *baton = new PublicKeyToStringBaton(args[0]);
   baton->publicKey = (ObjectWrap::Unwrap<PublicKey>(args.This()))->publicKey;
 
-  eio_custom(EIO_ToString, EIO_PRI_DEFAULT, EIO_AfterToString, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+
+  uv_queue_work(uv_default_loop(), request, DoingToString, AfterToString);
 
   return scope.Close(Undefined());
 }
 
-void PublicKey::EIO_ToString(eio_req *request) {
+void PublicKey::DoingToString(uv_work_t *request) {
   PublicKeyToStringBaton *baton =
     static_cast<PublicKeyToStringBaton *>(request->data);
 
@@ -308,11 +306,9 @@ void PublicKey::EIO_ToString(eio_req *request) {
   }
 }
 
-int PublicKey::EIO_AfterToString(eio_req *request) {
+void PublicKey::AfterToString(uv_work_t *request) {
   PublicKeyToStringBaton *baton =
     static_cast<PublicKeyToStringBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> publicKeyString = Null();
@@ -328,8 +324,7 @@ int PublicKey::EIO_AfterToString(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> PrivateKey::ToString(const Arguments &args) {
@@ -342,13 +337,14 @@ Handle<Value> PrivateKey::ToString(const Arguments &args) {
   baton->privateKey = (ObjectWrap::Unwrap<PrivateKey>(args.This()))->privateKey;
   baton->passphrase = toString(args[0]);
 
-  eio_custom(EIO_ToString, EIO_PRI_DEFAULT, EIO_AfterToString, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingToString, AfterToString);
 
   return scope.Close(Undefined());
 }
 
-void PrivateKey::EIO_ToString(eio_req *request) {
+void PrivateKey::DoingToString(uv_work_t *request) {
   PrivateKeyToStringBaton *baton =
     static_cast<PrivateKeyToStringBaton *>(request->data);
 
@@ -372,11 +368,9 @@ void PrivateKey::EIO_ToString(eio_req *request) {
   }
 }
 
-int PrivateKey::EIO_AfterToString(eio_req *request) {
+void PrivateKey::AfterToString(uv_work_t *request) {
   PrivateKeyToStringBaton *baton =
     static_cast<PrivateKeyToStringBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> privateKeyString = Null();
@@ -397,8 +391,7 @@ int PrivateKey::EIO_AfterToString(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> PublicKey::Encrypt(const Arguments &args) {
@@ -411,13 +404,14 @@ Handle<Value> PublicKey::Encrypt(const Arguments &args) {
   baton->in = toSecureVector(args[0]);
   baton->publicKey = (ObjectWrap::Unwrap<PublicKey>(args.This()))->publicKey;
 
-  eio_custom(EIO_Encrypt, EIO_PRI_DEFAULT, EIO_AfterEncrypt, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingEncrypt, AfterEncrypt);
 
   return scope.Close(Undefined());
 }
 
-void PublicKey::EIO_Encrypt(eio_req *request) {
+void PublicKey::DoingEncrypt(uv_work_t *request) {
   PublicKeyEncryptBaton *baton =
     static_cast<PublicKeyEncryptBaton *>(request->data);
 
@@ -432,11 +426,9 @@ void PublicKey::EIO_Encrypt(eio_req *request) {
   }
 }
 
-int PublicKey::EIO_AfterEncrypt(eio_req *request) {
+void PublicKey::AfterEncrypt(uv_work_t *request) {
   PublicKeyEncryptBaton *baton =
     static_cast<PublicKeyEncryptBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> out = Null();
@@ -452,8 +444,7 @@ int PublicKey::EIO_AfterEncrypt(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> PrivateKey::Decrypt(const Arguments &args) {
@@ -466,13 +457,14 @@ Handle<Value> PrivateKey::Decrypt(const Arguments &args) {
   baton->in = toSecureVector(args[0]);
   baton->privateKey = (ObjectWrap::Unwrap<PrivateKey>(args.This()))->privateKey;
 
-  eio_custom(EIO_Decrypt, EIO_PRI_DEFAULT, EIO_AfterDecrypt, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingDecrypt, AfterDecrypt);
 
   return scope.Close(Undefined());
 }
 
-void PrivateKey::EIO_Decrypt(eio_req *request) {
+void PrivateKey::DoingDecrypt(uv_work_t *request) {
   PrivateKeyDecryptBaton *baton =
     static_cast<PrivateKeyDecryptBaton *>(request->data);
 
@@ -486,11 +478,9 @@ void PrivateKey::EIO_Decrypt(eio_req *request) {
   }
 }
 
-int PrivateKey::EIO_AfterDecrypt(eio_req *request) {
+void PrivateKey::AfterDecrypt(uv_work_t *request) {
   PrivateKeyDecryptBaton *baton =
     static_cast<PrivateKeyDecryptBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> out = Null();
@@ -506,8 +496,7 @@ int PrivateKey::EIO_AfterDecrypt(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 PublicKey::PublicKey(Handle<Object> target, RSA_PublicKey* publicKey) {
@@ -564,8 +553,9 @@ Handle<Value> cipher::Encrypt(const Arguments &args) {
     memset(baton->mac, 0, baton->inLength * sizeof(std::string*));
   }
 
-  eio_custom(EIO_Encrypt, EIO_PRI_DEFAULT, EIO_AfterEncrypt, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingEncrypt, AfterEncrypt);
 
   return scope.Close(Undefined());
 }
@@ -597,7 +587,7 @@ std::string *encryptSecureVector(SecureVector<byte> *secureVector,
   return encryptedSecureVector;
 }
 
-void cipher::EIO_Encrypt(eio_req *request) {
+void cipher::DoingEncrypt(uv_work_t *request) {
   EncryptBaton *baton = static_cast<EncryptBaton *>(request->data);
 
   try {
@@ -605,10 +595,12 @@ void cipher::EIO_Encrypt(eio_req *request) {
       baton->key = new OctetString(base64_decode(*baton->keyString));
     size_t i = 0;
     for (; i < baton->inLength; i++) {
-      std::string *mac = NULL;
-      baton->out[i] = encryptSecureVector(baton->in[i], baton->cipherType, baton->key,
-        baton->macType, &mac);
-      if (mac) baton->mac[i] = mac;
+      if (baton->in[i]) {
+        std::string *mac = NULL;
+        baton->out[i] = encryptSecureVector(baton->in[i], baton->cipherType,
+          baton->key, baton->macType, &mac);
+        if (mac) baton->mac[i] = mac;
+      }
     }
   }
   catch (std::exception &e) {
@@ -616,9 +608,8 @@ void cipher::EIO_Encrypt(eio_req *request) {
   }
 }
 
-int cipher::EIO_AfterEncrypt(eio_req *request) {
+void cipher::AfterEncrypt(uv_work_t *request) {
   EncryptBaton *baton = static_cast<EncryptBaton *>(request->data);
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> out = Null();
@@ -628,9 +619,12 @@ int cipher::EIO_AfterEncrypt(eio_req *request) {
     error = TYPE_ERROR(baton->error->c_str());
   else {
     if (baton->inLength == 1) {
-      out = String::New(baton->out[0]->c_str());
-      if (baton->mac)
-        mac = String::New(baton->mac[0]->c_str());
+      if (baton->out[0]) {
+        out = String::New(baton->out[0]->c_str());
+        if (baton->mac)
+          mac = String::New(baton->mac[0]->c_str());
+      }
+      else out = Null();
     }
     else {
       Local<Array> outArray = Array::New(baton->inLength);
@@ -638,9 +632,12 @@ int cipher::EIO_AfterEncrypt(eio_req *request) {
       if (baton->macType) macArray = Array::New(baton->inLength);
       size_t i = 0;
       for (; i < baton->inLength; i++) {
-        outArray->Set(i, String::New(baton->out[i]->c_str()));
-        if (baton->macType)
-          macArray->Set(i, String::New(baton->mac[i]->c_str()));
+        if (baton->out[i]) {
+          outArray->Set(i, String::New(baton->out[i]->c_str()));
+          if (baton->macType)
+            macArray->Set(i, String::New(baton->mac[i]->c_str()));
+        }
+        else outArray->Set(i, Null());
       }
       out = outArray;
       if (baton->macType) mac = macArray;
@@ -653,8 +650,7 @@ int cipher::EIO_AfterEncrypt(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> cipher::Decrypt(const Arguments &args) {
@@ -684,8 +680,9 @@ Handle<Value> cipher::Decrypt(const Arguments &args) {
     memset(baton->mac, 0, baton->inLength * sizeof(std::string*));
   }
 
- eio_custom(EIO_Decrypt, EIO_PRI_DEFAULT, EIO_AfterDecrypt, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingDecrypt, AfterDecrypt);
 
   return scope.Close(Undefined());
 }
@@ -712,7 +709,7 @@ SecureVector<byte> *decryptSecureVector(SecureVector<byte>& secureVector,
   return decryptedSecureVector;
 }
 
-void cipher::EIO_Decrypt(eio_req *request) {
+void cipher::DoingDecrypt(uv_work_t *request) {
   DecryptBaton *baton = static_cast<DecryptBaton *>(request->data);
 
   try {
@@ -720,16 +717,18 @@ void cipher::EIO_Decrypt(eio_req *request) {
       baton->key = new OctetString(base64_decode(*baton->keyString));
     size_t i = 0;
     for (; i < baton->inLength; i++) {
-      std::string *mac = NULL;
-      SecureVector<byte> ivString = base64_decode((char *) baton->in[i]->begin(),
-        IV_SIZE_BASE64);
-      ivString.resize(ivString.size() - (IV_SIZE % 3));
-      InitializationVector iv(ivString);
-      SecureVector<byte> in(*baton->in[i] + IV_SIZE_BASE64, baton->in[i]->size()
-        - IV_SIZE_BASE64);
-      baton->out[i] = decryptSecureVector(in, baton->cipherType, baton->key, iv,
-        baton->macType, &mac);
-      if (mac) baton->mac[i] = mac;
+      if (baton->in[i]) {
+        std::string *mac = NULL;
+        SecureVector<byte> ivString = base64_decode((char *) baton->in[i]->begin(),
+          IV_SIZE_BASE64);
+        ivString.resize(ivString.size() - (IV_SIZE % 3));
+        InitializationVector iv(ivString);
+        SecureVector<byte> in(*baton->in[i] + IV_SIZE_BASE64, baton->in[i]->size()
+          - IV_SIZE_BASE64);
+        baton->out[i] = decryptSecureVector(in, baton->cipherType, baton->key, iv,
+          baton->macType, &mac);
+        if (mac) baton->mac[i] = mac;
+      }
     }
   }
   catch (std::exception &e) {
@@ -737,9 +736,8 @@ void cipher::EIO_Decrypt(eio_req *request) {
   }
 }
 
-int cipher::EIO_AfterDecrypt(eio_req *request) {
+void cipher::AfterDecrypt(uv_work_t *request) {
   DecryptBaton *baton = static_cast<DecryptBaton *>(request->data);
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> out = Null();
@@ -749,9 +747,12 @@ int cipher::EIO_AfterDecrypt(eio_req *request) {
     error = TYPE_ERROR(baton->error->c_str());
   else {
     if (baton->inLength == 1) {
-      out = Buffer::New((char *) baton->out[0]->begin(),
-        baton->out[0]->size())->handle_;
-      if (baton->mac) mac = String::New(baton->mac[0]->c_str());
+      if (baton->out[0]) {
+        out = Buffer::New((char *) baton->out[0]->begin(),
+          baton->out[0]->size())->handle_;
+        if (baton->mac) mac = String::New(baton->mac[0]->c_str());
+      }
+      else out = Null();
     }
     else {
       Local<Array> outArray = Array::New(baton->inLength);
@@ -759,10 +760,13 @@ int cipher::EIO_AfterDecrypt(eio_req *request) {
       if (baton->macType) macArray = Array::New(baton->inLength);
       size_t i = 0;
       for (; i < baton->inLength; i++) {
-        outArray->Set(i, Buffer::New((char *) baton->out[i]->begin(),
-          baton->out[i]->size())->handle_);
-        if (baton->macType)
-          macArray->Set(i, String::New(baton->mac[i]->c_str()));
+        if (baton->out[i]) {
+          outArray->Set(i, Buffer::New((char *) baton->out[i]->begin(),
+            baton->out[i]->size())->handle_);
+          if (baton->macType)
+            macArray->Set(i, String::New(baton->mac[i]->c_str()));
+        }
+        else outArray->Set(i, Null());
       }
       out = outArray;
       if (baton->macType) mac = macArray;
@@ -775,8 +779,7 @@ int cipher::EIO_AfterDecrypt(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> cipher::InitialiseEncryptor(const Arguments &args) {
@@ -798,14 +801,15 @@ Handle<Value> cipher::InitialiseEncryptor(const Arguments &args) {
   else
     baton->key = toSecureVector(args[2]);
 
-  eio_custom(EIO_InitialiseEncryptor, EIO_PRI_DEFAULT,
-    EIO_AfterInitialiseEncryptor, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingInitialiseEncryptor,
+    AfterInitialiseEncryptor);
 
   return scope.Close(Undefined());
 }
 
-void cipher::EIO_InitialiseEncryptor(eio_req *request) {
+void cipher::DoingInitialiseEncryptor(uv_work_t *request) {
   InitialiseEncryptorBaton *baton =
     static_cast<InitialiseEncryptorBaton *>(request->data);
 
@@ -829,11 +833,9 @@ void cipher::EIO_InitialiseEncryptor(eio_req *request) {
   }
 }
 
-int cipher::EIO_AfterInitialiseEncryptor(eio_req *request) {
+void cipher::AfterInitialiseEncryptor(uv_work_t *request) {
   InitialiseEncryptorBaton *baton =
     static_cast<InitialiseEncryptorBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> encryptor = Null();
@@ -855,8 +857,7 @@ int cipher::EIO_AfterInitialiseEncryptor(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> Encryptor::Update(const Arguments &args) {
@@ -882,13 +883,14 @@ Handle<Value> Encryptor::Update(const Arguments &args) {
     inLength);
   baton->pipe = (ObjectWrap::Unwrap<Encryptor>(args.This()))->pipe;
 
-  eio_custom(EIO_Update, EIO_PRI_DEFAULT, EIO_AfterUpdate, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingUpdate, AfterUpdate);
 
   return scope.Close(Undefined());
 }
 
-void Encryptor::EIO_Update(eio_req *request) {
+void Encryptor::DoingUpdate(uv_work_t *request) {
   EncryptorUpdateBaton *baton = static_cast<EncryptorUpdateBaton *>(request->data);
 
   try {
@@ -900,10 +902,9 @@ void Encryptor::EIO_Update(eio_req *request) {
   }
 }
 
-int Encryptor::EIO_AfterUpdate(eio_req *request) {
+void Encryptor::AfterUpdate(uv_work_t *request) {
   EncryptorUpdateBaton *baton = static_cast<EncryptorUpdateBaton *>(request->data);
 
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> out = Null();
@@ -919,8 +920,7 @@ int Encryptor::EIO_AfterUpdate(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> Encryptor::Final(const Arguments &args) {
@@ -931,13 +931,14 @@ Handle<Value> Encryptor::Final(const Arguments &args) {
   EncryptorFinalBaton *baton = new EncryptorFinalBaton(args[0]);
   baton->pipe = (ObjectWrap::Unwrap<Encryptor>(args.This()))->pipe;
 
-  eio_custom(EIO_Final, EIO_PRI_DEFAULT, EIO_AfterFinal, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingFinal, AfterFinal);
 
   return scope.Close(Undefined());
 }
 
-void Encryptor::EIO_Final(eio_req *request) {
+void Encryptor::DoingFinal(uv_work_t *request) {
   EncryptorFinalBaton *baton = static_cast<EncryptorFinalBaton *>(request->data);
 
   try {
@@ -951,9 +952,8 @@ void Encryptor::EIO_Final(eio_req *request) {
   }
 }
 
-int Encryptor::EIO_AfterFinal(eio_req *request) {
+void Encryptor::AfterFinal(uv_work_t *request) {
   EncryptorFinalBaton *baton = static_cast<EncryptorFinalBaton *>(request->data);
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> out = Null();
@@ -976,8 +976,7 @@ int Encryptor::EIO_AfterFinal(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Encryptor::Encryptor(Handle<Object> target, Pipe* pipe) {
@@ -1014,14 +1013,15 @@ Handle<Value> cipher::InitialiseDecryptor(const Arguments &args) {
     baton->key = toSecureVector(args[2]);
   baton->iv = toSecureVector(args[3]);
 
-  eio_custom(EIO_InitialiseDecryptor, EIO_PRI_DEFAULT,
-    EIO_AfterInitialiseDecryptor, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingInitialiseDecryptor,
+    AfterInitialiseDecryptor);
 
   return scope.Close(Undefined());
 }
 
-void cipher::EIO_InitialiseDecryptor(eio_req *request) {
+void cipher::DoingInitialiseDecryptor(uv_work_t *request) {
   InitialiseDecryptorBaton *baton =
     static_cast<InitialiseDecryptorBaton *>(request->data);
 
@@ -1044,11 +1044,9 @@ void cipher::EIO_InitialiseDecryptor(eio_req *request) {
   }
 }
 
-int cipher::EIO_AfterInitialiseDecryptor(eio_req *request) {
+void cipher::AfterInitialiseDecryptor(uv_work_t *request) {
   InitialiseDecryptorBaton *baton =
     static_cast<InitialiseDecryptorBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> decryptor = Null();
@@ -1068,8 +1066,7 @@ int cipher::EIO_AfterInitialiseDecryptor(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> Decryptor::Update(const Arguments &args) {
@@ -1095,13 +1092,14 @@ Handle<Value> Decryptor::Update(const Arguments &args) {
     inLength);
   baton->pipe = (ObjectWrap::Unwrap<Decryptor>(args.This()))->pipe;
 
-  eio_custom(EIO_Update, EIO_PRI_DEFAULT, EIO_AfterUpdate, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingUpdate, AfterUpdate);
 
   return scope.Close(Undefined());
 }
 
-void Decryptor::EIO_Update(eio_req *request) {
+void Decryptor::DoingUpdate(uv_work_t *request) {
   DecryptorUpdateBaton *baton = static_cast<DecryptorUpdateBaton *>(request->data);
 
   try {
@@ -1113,7 +1111,7 @@ void Decryptor::EIO_Update(eio_req *request) {
   }
 }
 
-int Decryptor::EIO_AfterUpdate(eio_req *request) {
+void Decryptor::AfterUpdate(uv_work_t *request) {
   DecryptorUpdateBaton *baton = static_cast<DecryptorUpdateBaton *>(request->data);
 
   Handle<Value> error = Null();
@@ -1130,8 +1128,7 @@ int Decryptor::EIO_AfterUpdate(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> Decryptor::Final(const Arguments &args) {
@@ -1142,13 +1139,14 @@ Handle<Value> Decryptor::Final(const Arguments &args) {
   DecryptorFinalBaton *baton = new DecryptorFinalBaton(args[0]);
   baton->pipe = (ObjectWrap::Unwrap<Decryptor>(args.This()))->pipe;
 
-  eio_custom(EIO_Final, EIO_PRI_DEFAULT, EIO_AfterFinal, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingFinal, AfterFinal);
 
   return scope.Close(Undefined());
 }
 
-void Decryptor::EIO_Final(eio_req *request) {
+void Decryptor::DoingFinal(uv_work_t *request) {
   DecryptorFinalBaton *baton = static_cast<DecryptorFinalBaton *>(request->data);
 
   try {
@@ -1163,9 +1161,8 @@ void Decryptor::EIO_Final(eio_req *request) {
   }
 }
 
-int Decryptor::EIO_AfterFinal(eio_req *request) {
+void Decryptor::AfterFinal(uv_work_t *request) {
   DecryptorFinalBaton *baton = static_cast<DecryptorFinalBaton *>(request->data);
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> out = Null();
@@ -1186,8 +1183,7 @@ int Decryptor::EIO_AfterFinal(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Decryptor::Decryptor(Handle<Object> target, Pipe* pipe) {
@@ -1256,13 +1252,14 @@ Handle<Value> codec::Encode(const Arguments &args) {
     return THROW_BAD_ARGS;
   baton->in = toSecureVector(args[1]);
 
-  eio_custom(EIO_Encode, EIO_PRI_DEFAULT, EIO_AfterEncode, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingEncode, AfterEncode);
 
   return scope.Close(Undefined());
 }
 
-void codec::EIO_Encode(eio_req *request) {
+void codec::DoingEncode(uv_work_t *request) {
   EncodeBaton *baton = static_cast<EncodeBaton *>(request->data);
 
   try {
@@ -1276,9 +1273,8 @@ void codec::EIO_Encode(eio_req *request) {
   }
 }
 
-int codec::EIO_AfterEncode(eio_req *request) {
+void codec::AfterEncode(uv_work_t *request) {
   EncodeBaton *baton = static_cast<EncodeBaton *>(request->data);
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> out = Null();
@@ -1294,8 +1290,7 @@ int codec::EIO_AfterEncode(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> codec::DecodeSync(const Arguments &args) {
@@ -1342,13 +1337,14 @@ Handle<Value> codec::Decode(const Arguments &args) {
     return THROW_BAD_ARGS;
   baton->in = toString(args[1]);
 
-  eio_custom(EIO_Decode, EIO_PRI_DEFAULT, EIO_AfterDecode, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingDecode, AfterDecode);
 
   return scope.Close(Undefined());
 }
 
-void codec::EIO_Decode(eio_req *request) {
+void codec::DoingDecode(uv_work_t *request) {
   DecodeBaton *baton = static_cast<DecodeBaton *>(request->data);
 
   try {
@@ -1363,10 +1359,8 @@ void codec::EIO_Decode(eio_req *request) {
   }
 }
 
-int codec::EIO_AfterDecode(eio_req *request) {
+void codec::AfterDecode(uv_work_t *request) {
   DecodeBaton *baton = static_cast<DecodeBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> out = Null();
@@ -1382,8 +1376,7 @@ int codec::EIO_AfterDecode(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> mac::Generate(const Arguments &args) {
@@ -1422,13 +1415,14 @@ Handle<Value> mac::Generate(const Arguments &args) {
   }
   baton->key = toOctetString(args[3]);
 
-  eio_custom(EIO_Generate, EIO_PRI_DEFAULT, EIO_AfterGenerate, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingGenerate, AfterGenerate);
 
   return scope.Close(Undefined());
 }
 
-void mac::EIO_Generate(eio_req *request) {
+void mac::DoingGenerate(uv_work_t *request) {
   GenerateBaton *baton = static_cast<GenerateBaton *>(request->data);
 
   try {
@@ -1443,10 +1437,8 @@ void mac::EIO_Generate(eio_req *request) {
   }
 }
 
-int mac::EIO_AfterGenerate(eio_req *request) {
+void mac::AfterGenerate(uv_work_t *request) {
   GenerateBaton *baton = static_cast<GenerateBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> mac = Null();
@@ -1462,8 +1454,7 @@ int mac::EIO_AfterGenerate(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> mac::Initialise(const Arguments &args) {
@@ -1476,13 +1467,14 @@ Handle<Value> mac::Initialise(const Arguments &args) {
   baton->type = toString(args[0]);
   baton->key = toOctetString(args[1]);
 
-  eio_custom(EIO_Initialise, EIO_PRI_DEFAULT, EIO_AfterInitialise, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingInitialise, AfterInitialise);
 
   return scope.Close(Undefined());
 }
 
-void mac::EIO_Initialise(eio_req *request) {
+void mac::DoingInitialise(uv_work_t *request) {
   InitialiseBaton *baton = static_cast<InitialiseBaton *>(request->data);
 
   try {
@@ -1495,10 +1487,8 @@ void mac::EIO_Initialise(eio_req *request) {
   }
 }
 
-int mac::EIO_AfterInitialise(eio_req *request) {
+void mac::AfterInitialise(uv_work_t *request) {
   InitialiseBaton *baton = static_cast<InitialiseBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> mac = Null();
@@ -1517,8 +1507,7 @@ int mac::EIO_AfterInitialise(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> Mac::Update(const Arguments &args) {
@@ -1555,13 +1544,14 @@ Handle<Value> Mac::Update(const Arguments &args) {
   }
   baton->pipe = (ObjectWrap::Unwrap<Mac>(args.This()))->pipe;
 
-  eio_custom(EIO_Update, EIO_PRI_DEFAULT, EIO_AfterUpdate, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingUpdate, AfterUpdate);
 
   return scope.Close(Undefined());
 }
 
-void Mac::EIO_Update(eio_req *request) {
+void Mac::DoingUpdate(uv_work_t *request) {
   MacUpdateBaton *baton = static_cast<MacUpdateBaton *>(request->data);
 
   try {
@@ -1572,10 +1562,8 @@ void Mac::EIO_Update(eio_req *request) {
   }
 }
 
-int Mac::EIO_AfterUpdate(eio_req *request) {
+void Mac::AfterUpdate(uv_work_t *request) {
   MacUpdateBaton *baton = static_cast<MacUpdateBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   if (baton->error)
@@ -1587,8 +1575,7 @@ int Mac::EIO_AfterUpdate(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> Mac::Final(const Arguments &args) {
@@ -1599,13 +1586,14 @@ Handle<Value> Mac::Final(const Arguments &args) {
   MacFinalBaton *baton = new MacFinalBaton(args[0]);
   baton->pipe = (ObjectWrap::Unwrap<Mac>(args.This()))->pipe;
 
-  eio_custom(EIO_Final, EIO_PRI_DEFAULT, EIO_AfterFinal, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingFinal, AfterFinal);
 
   return scope.Close(Undefined());
 }
 
-void Mac::EIO_Final(eio_req *request) {
+void Mac::DoingFinal(uv_work_t *request) {
   MacFinalBaton *baton = static_cast<MacFinalBaton *>(request->data);
 
   try {
@@ -1617,10 +1605,8 @@ void Mac::EIO_Final(eio_req *request) {
   }
 }
 
-int Mac::EIO_AfterFinal(eio_req *request) {
+void Mac::AfterFinal(uv_work_t *request) {
   MacFinalBaton *baton = static_cast<MacFinalBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> mac = Null();
@@ -1636,8 +1622,7 @@ int Mac::EIO_AfterFinal(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Mac::Mac(Local<Object> target, Pipe* pipe) {
@@ -1687,13 +1672,14 @@ Handle<Value> hash::Generate(const Arguments &args) {
     baton->in = new SecureVector<byte>((byte *) Buffer::Data(in), inLength);
   }
 
-  eio_custom(EIO_Generate, EIO_PRI_DEFAULT, EIO_AfterGenerate, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingGenerate, AfterGenerate);
 
   return scope.Close(Undefined());
 }
 
-void hash::EIO_Generate(eio_req *request) {
+void hash::DoingGenerate(uv_work_t *request) {
   GenerateBaton *baton = static_cast<GenerateBaton *>(request->data);
 
   try {
@@ -1707,10 +1693,8 @@ void hash::EIO_Generate(eio_req *request) {
   }
 }
 
-int hash::EIO_AfterGenerate(eio_req *request) {
+void hash::AfterGenerate(uv_work_t *request) {
   GenerateBaton *baton = static_cast<GenerateBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> hash = Null();
@@ -1726,8 +1710,7 @@ int hash::EIO_AfterGenerate(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> hash::Initialise(const Arguments &args) {
@@ -1739,13 +1722,14 @@ Handle<Value> hash::Initialise(const Arguments &args) {
   InitialiseBaton *baton = new InitialiseBaton(args[1]);
   baton->type = toString(args[0]);
 
-  eio_custom(EIO_Initialise, EIO_PRI_DEFAULT, EIO_AfterInitialise, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingInitialise, AfterInitialise);
 
   return scope.Close(Undefined());
 }
 
-void hash::EIO_Initialise(eio_req *request) {
+void hash::DoingInitialise(uv_work_t *request) {
   InitialiseBaton *baton = static_cast<InitialiseBaton *>(request->data);
 
   try {
@@ -1757,10 +1741,8 @@ void hash::EIO_Initialise(eio_req *request) {
   }
 }
 
-int hash::EIO_AfterInitialise(eio_req *request) {
+void hash::AfterInitialise(uv_work_t *request) {
   InitialiseBaton *baton = static_cast<InitialiseBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> hash = Null();
@@ -1779,8 +1761,7 @@ int hash::EIO_AfterInitialise(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> Hash::Update(const Arguments &args) {
@@ -1817,13 +1798,14 @@ Handle<Value> Hash::Update(const Arguments &args) {
   }
   baton->pipe = (ObjectWrap::Unwrap<Hash>(args.This()))->pipe;
 
-  eio_custom(EIO_Update, EIO_PRI_DEFAULT, EIO_AfterUpdate, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingUpdate, AfterUpdate);
 
   return scope.Close(Undefined());
 }
 
-void Hash::EIO_Update(eio_req *request) {
+void Hash::DoingUpdate(uv_work_t *request) {
   HashUpdateBaton *baton = static_cast<HashUpdateBaton *>(request->data);
 
   try {
@@ -1834,10 +1816,8 @@ void Hash::EIO_Update(eio_req *request) {
   }
 }
 
-int Hash::EIO_AfterUpdate(eio_req *request) {
+void Hash::AfterUpdate(uv_work_t *request) {
   HashUpdateBaton *baton = static_cast<HashUpdateBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   if (baton->error)
@@ -1849,8 +1829,7 @@ int Hash::EIO_AfterUpdate(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> Hash::Final(const Arguments &args) {
@@ -1861,13 +1840,14 @@ Handle<Value> Hash::Final(const Arguments &args) {
   HashFinalBaton *baton = new HashFinalBaton(args[0]);
   baton->pipe = (ObjectWrap::Unwrap<Hash>(args.This()))->pipe;
 
-  eio_custom(EIO_Final, EIO_PRI_DEFAULT, EIO_AfterFinal, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingFinal, AfterFinal);
 
   return scope.Close(Undefined());
 }
 
-void Hash::EIO_Final(eio_req *request) {
+void Hash::DoingFinal(uv_work_t *request) {
   HashFinalBaton *baton = static_cast<HashFinalBaton *>(request->data);
 
   try {
@@ -1879,10 +1859,8 @@ void Hash::EIO_Final(eio_req *request) {
   }
 }
 
-int Hash::EIO_AfterFinal(eio_req *request) {
+void Hash::AfterFinal(uv_work_t *request) {
   HashFinalBaton *baton = static_cast<HashFinalBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> hash = Null();
@@ -1898,8 +1876,7 @@ int Hash::EIO_AfterFinal(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Hash::Hash(Local<Object> target, Pipe* pipe) {
@@ -1932,13 +1909,14 @@ Handle<Value> pbkdf::Generate(const Arguments &args) {
   else
     baton->iterations = args[3]->NumberValue();
 
-  eio_custom(EIO_Generate, EIO_PRI_DEFAULT, EIO_AfterGenerate, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingGenerate, AfterGenerate);
 
   return scope.Close(Undefined());
 }
 
-void pbkdf::EIO_Generate(eio_req *request) {
+void pbkdf::DoingGenerate(uv_work_t *request) {
   GenerateBaton *baton = static_cast<GenerateBaton *>(request->data);
 
   try {
@@ -1961,10 +1939,8 @@ void pbkdf::EIO_Generate(eio_req *request) {
   }
 }
 
-int pbkdf::EIO_AfterGenerate(eio_req *request) {
+void pbkdf::AfterGenerate(uv_work_t *request) {
   GenerateBaton *baton = static_cast<GenerateBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> derivedKey = Null();
@@ -1983,8 +1959,7 @@ int pbkdf::EIO_AfterGenerate(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> rnd::GenerateDigits(const Arguments &args) {
@@ -1997,13 +1972,15 @@ Handle<Value> rnd::GenerateDigits(const Arguments &args) {
   baton->digitsLength = args[0]->NumberValue();
   if (baton->digitsLength <= 0) return THROW_BAD_ARGS;
 
-  eio_custom(EIO_GenerateDigits, EIO_PRI_DEFAULT, EIO_AfterGenerateDigits, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingGenerateDigits,
+      AfterGenerateDigits);
 
   return scope.Close(Undefined());
 }
 
-void rnd::EIO_GenerateDigits(eio_req *request) {
+void rnd::DoingGenerateDigits(uv_work_t *request) {
   GenerateDigitsBaton *baton = static_cast<GenerateDigitsBaton *>(request->data);
 
   std::string digits;
@@ -2024,10 +2001,8 @@ void rnd::EIO_GenerateDigits(eio_req *request) {
   }
 }
 
-int rnd::EIO_AfterGenerateDigits(eio_req *request) {
+void rnd::AfterGenerateDigits(uv_work_t *request) {
   GenerateDigitsBaton *baton = static_cast<GenerateDigitsBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> digits = Null();
@@ -2044,8 +2019,7 @@ int rnd::EIO_AfterGenerateDigits(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
 Handle<Value> rnd::GenerateBytes(const Arguments &args) {
@@ -2067,13 +2041,14 @@ Handle<Value> rnd::GenerateBytes(const Arguments &args) {
   baton->bytesLength = args[1]->NumberValue();
   if (baton->bytesLength <= 0) return THROW_BAD_ARGS;
 
-  eio_custom(EIO_GenerateBytes, EIO_PRI_DEFAULT, EIO_AfterGenerateBytes, baton);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *request = new uv_work_t;
+  request->data = baton;
+  uv_queue_work(uv_default_loop(), request, DoingGenerateBytes, AfterGenerateBytes);
 
   return scope.Close(Undefined());
 }
 
-void rnd::EIO_GenerateBytes(eio_req *request) {
+void rnd::DoingGenerateBytes(uv_work_t *request) {
   GenerateBytesBaton *baton = static_cast<GenerateBytesBaton *>(request->data);
 
   try {
@@ -2095,10 +2070,8 @@ void rnd::EIO_GenerateBytes(eio_req *request) {
   }
 }
 
-int rnd::EIO_AfterGenerateBytes(eio_req *request) {
+void rnd::AfterGenerateBytes(uv_work_t *request) {
   GenerateBytesBaton *baton = static_cast<GenerateBytesBaton *>(request->data);
-
-  ev_unref(EV_DEFAULT_UC);
 
   Handle<Value> error = Null();
   Handle<Value> bytes = Null();
@@ -2118,12 +2091,11 @@ int rnd::EIO_AfterGenerateBytes(eio_req *request) {
   if (try_catch.HasCaught()) FatalException(try_catch);
 
   delete baton;
-
-  return 0;
+  delete request;
 }
 
-extern "C" void init(Handle<Object> target) {
-  LibraryInitializer init();
+void init(Handle<Object> target) {
+  Botan::LibraryInitializer init("thread_safe=true");
 
   NODE_SET_METHOD(target, "generateKeys", pk::Generate);
   NODE_SET_METHOD(target, "loadPublicKey", pk::LoadPublicKey);
@@ -2144,4 +2116,8 @@ extern "C" void init(Handle<Object> target) {
   NODE_SET_METHOD(target, "generateRandomDigits", rnd::GenerateDigits);
   NODE_SET_METHOD(target, "generateRandomBytes", rnd::GenerateBytes);
 }
+
+} // namespace node_botan
+
+NODE_MODULE(cr, node_botan::init);
 
