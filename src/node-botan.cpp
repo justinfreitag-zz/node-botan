@@ -2119,5 +2119,5 @@ void init(Handle<Object> target) {
 
 } // namespace node_botan
 
-NODE_MODULE(cr, node_botan::init);
+NODE_MODULE(botan, node_botan::init);
 

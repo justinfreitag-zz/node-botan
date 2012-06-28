@@ -1,4 +1,4 @@
-var botan = require(__dirname + '/../build/Release/botan');
+var cr = require(__dirname + '/../build/Release/botan');
 var should = require('should');
 
 function concatenate(buffers) {
@@ -31,7 +31,7 @@ describe('RSA key functions', function() {
   var privateKey1;
 
   it('should generate an RSA key pair', function(done) {
-    botan.generateKeys(2048, function(error, publicKey, privateKey) {
+    cr.generateKeys(4096, function(error, publicKey, privateKey) {
       should.not.exist(error);
       should.exist(publicKey);
       should.exist(privateKey);
@@ -64,7 +64,7 @@ describe('RSA key functions', function() {
     publicKey1.toString(function(error, pem) {
       should.not.exist(error);
       should.exist(pem);
-      botan.loadPublicKey(pem, function(error, publicKey) {
+      cr.loadPublicKey(pem, function(error, publicKey) {
         should.not.exist(error);
         should.exist(publicKey);
         done();
@@ -78,7 +78,7 @@ describe('RSA key functions', function() {
       should.exist(pem);
       should.exist(salt);
       should.exist(iv);
-      botan.loadPrivateKey(pem, salt, iv, 'test123', function(error, privateKey) {
+      cr.loadPrivateKey(pem, salt, iv, 'test123', function(error, privateKey) {
         should.not.exist(error);
         should.exist(privateKey);
         done();
@@ -92,7 +92,7 @@ describe('RSA key functions', function() {
       should.exist(pem);
       should.exist(salt);
       should.exist(iv);
-      botan.loadPrivateKey(new Buffer(pem), salt, iv, 'test123', function(error, privateKey) {
+      cr.loadPrivateKey(new Buffer(pem), salt, iv, 'test123', function(error, privateKey) {
         should.not.exist(error);
         should.exist(privateKey);
         done();
@@ -106,7 +106,7 @@ describe('RSA key functions', function() {
       should.exist(pem);
       should.exist(salt);
       should.exist(iv);
-      botan.loadPrivateKey(pem, salt, iv, 'wrong', function(error, privateKey) {
+      cr.loadPrivateKey(pem, salt, iv, 'wrong', function(error, privateKey) {
         should.not.exist(privateKey);
         should.exist(error);
         done();
@@ -137,14 +137,14 @@ describe('RSA key functions', function() {
         should.exist(privateKeyPem);
         should.exist(salt);
         should.exist(iv);
-        botan.loadPublicKey(publicKeyPem, function(error, publicKey) {
+        cr.loadPublicKey(publicKeyPem, function(error, publicKey) {
           should.not.exist(error);
           should.exist(publicKey);
           var data = new Buffer("test message");
           publicKey.encrypt(data, function(error, encryptedData) {
             should.not.exist(error);
             should.exist(encryptedData);
-            botan.loadPrivateKey(privateKeyPem, salt, iv, 'test', function(error, privateKey) {
+            cr.loadPrivateKey(privateKeyPem, salt, iv, 'test', function(error, privateKey) {
               privateKey.decrypt(encryptedData, function(error, decryptedData) {
                 should.not.exist(error);
                 should.exist(decryptedData);
@@ -161,9 +161,9 @@ describe('RSA key functions', function() {
   var cipherKey;
 
   it('should initialise encryptor using AES-256/EAX with built-in MAC', function(done) {
-    botan.generateRandomBytes('binary', 32, function(error, key) {
+    cr.generateRandomBytes('binary', 32, function(error, key) {
       cipherKey = key;
-      botan.initialiseEncryptor(null, null, key, function(error, encryptor, iv) {
+      cr.initialiseEncryptor(null, null, key, function(error, encryptor, iv) {
         should.not.exist(error);
         should.exist(encryptor);
         should.exist(iv);
@@ -175,9 +175,9 @@ describe('RSA key functions', function() {
   var cipherIv;
 
   it('should initialise decryptor using AES-256/EAX with built-in MAC', function(done) {
-    botan.generateRandomBytes('hex', 16, function(error, iv) {
+    cr.generateRandomBytes('hex', 16, function(error, iv) {
       cipherIv = iv;
-      botan.initialiseDecryptor(null, null, cipherKey, iv, function(error, decryptor) {
+      cr.initialiseDecryptor(null, null, cipherKey, iv, function(error, decryptor) {
         should.not.exist(error);
         should.exist(decryptor);
         done();
@@ -186,7 +186,7 @@ describe('RSA key functions', function() {
   });
 
   it('should encrypt/decrypt using AES-256/EAX with built-in MAC', function(done) {
-    botan.initialiseEncryptor(null, null, cipherKey, function(error, encryptor, iv) {
+    cr.initialiseEncryptor(null, null, cipherKey, function(error, encryptor, iv) {
       should.not.exist(error);
       should.exist(encryptor);
       should.exist(iv);
@@ -197,7 +197,7 @@ describe('RSA key functions', function() {
           should.not.exist(error);
           should.not.exist(mac);
           var encryptedBuffer = concatenate(encryptedData, finalEncryptedData);
-          botan.initialiseDecryptor(null, null, cipherKey, iv, function(error, decryptor) {
+          cr.initialiseDecryptor(null, null, cipherKey, iv, function(error, decryptor) {
             should.not.exist(error);
             should.exist(decryptor);
             decryptor.update(encryptedBuffer, null, null, function(error, decryptedData) {
@@ -206,9 +206,7 @@ describe('RSA key functions', function() {
                 should.not.exist(error);
                 should.not.exist(mac);
                 var decryptedBuffer = concatenate(decryptedData, finalDecryptedData);
-                var decryptedDataString = decryptedBuffer.toString();
-                console.log(decryptedDataString);
-                data.toString().should.equal(decryptedDataString);
+                data.toString().should.equal(decryptedBuffer.toString());
                 done();
               });
             });
@@ -217,9 +215,9 @@ describe('RSA key functions', function() {
       });
     });
   });
-
+/*
   it('should encrypt/decrypt using AES-256/CTR-BE and produce HMAC(SHA-512)', function(done) {
-    botan.initialiseEncryptor("AES-256/CTR-BE", "HMAC(SHA-512)", cipherKey, function(error, encryptor, iv) {
+    cr.initialiseEncryptor("AES-256/CTR-BE", "HMAC(SHA-512)", cipherKey, function(error, encryptor, iv) {
       should.not.exist(error);
       should.exist(encryptor);
       should.exist(iv);
@@ -230,7 +228,7 @@ describe('RSA key functions', function() {
           should.not.exist(error);
           should.exist(mac);
           var encryptedBuffer = concatenate(encryptedData, finalEncryptedData);
-          botan.initialiseDecryptor("AES-256/CTR-BE", "HMAC(SHA-512)", cipherKey, iv, function(error, decryptor) {
+          cr.initialiseDecryptor("AES-256/CTR-BE", "HMAC(SHA-512)", cipherKey, iv, function(error, decryptor) {
             should.not.exist(error);
             should.exist(decryptor);
             decryptor.update(encryptedBuffer, null, null, function(error, decryptedData) {
@@ -249,9 +247,9 @@ describe('RSA key functions', function() {
       });
     });
   });
-/*
+
   it('should fail to update encryptor with buffer that is too small', function(done) {
-    botan.initialiseEncryptor(null, null, cipherKey, function(error, encryptor, iv) {
+    cr.initialiseEncryptor(null, null, cipherKey, function(error, encryptor, iv) {
       should.not.exist(error);
       should.exist(encryptor);
       should.exist(iv);
@@ -262,7 +260,7 @@ describe('RSA key functions', function() {
   });
 
   it('should fail to update encryptor with buffer length that is too small based on position', function(done) {
-    botan.initialiseEncryptor(null, null, cipherKey, function(error, encryptor, iv) {
+    cr.initialiseEncryptor(null, null, cipherKey, function(error, encryptor, iv) {
       should.not.exist(error);
       should.exist(encryptor);
       should.exist(iv);
@@ -273,7 +271,7 @@ describe('RSA key functions', function() {
   });
 
   it('should fail to update decryptor with buffer length that is too small', function(done) {
-    botan.initialiseEncryptor(null, null, cipherKey, function(error, encryptor, iv) {
+    cr.initialiseEncryptor(null, null, cipherKey, function(error, encryptor, iv) {
       should.not.exist(error);
       should.exist(encryptor);
       should.exist(iv);
@@ -283,7 +281,7 @@ describe('RSA key functions', function() {
         encryptor.final(function(error, finalEncryptedData, mac) {
           should.not.exist(error);
           should.not.exist(mac);
-          botan.initialiseDecryptor(null, null, cipherKey, cipherIv, function(error, decryptor) {
+          cr.initialiseDecryptor(null, null, cipherKey, cipherIv, function(error, decryptor) {
             should.not.exist(error);
             should.exist(decryptor);
             var data = new Buffer('test message');
@@ -296,7 +294,7 @@ describe('RSA key functions', function() {
   });
 
   it('should fail to update decryptor with buffer length that is too small based on position', function(done) {
-    botan.initialiseEncryptor(null, null, cipherKey, function(error, encryptor, iv) {
+    cr.initialiseEncryptor(null, null, cipherKey, function(error, encryptor, iv) {
       should.not.exist(error);
       should.exist(encryptor);
       should.exist(iv);
@@ -306,7 +304,7 @@ describe('RSA key functions', function() {
         encryptor.final(function(error, finalEncryptedData, mac) {
           should.not.exist(error);
           should.not.exist(mac);
-          botan.initialiseDecryptor(null, null, cipherKey, cipherIv, function(error, decryptor) {
+          cr.initialiseDecryptor(null, null, cipherKey, cipherIv, function(error, decryptor) {
             should.not.exist(error);
             should.exist(decryptor);
             var data = new Buffer('test message');
@@ -323,9 +321,9 @@ describe('RSA key functions', function() {
   var iv1;
 
   it('should encrypt data using AES-256/EAX with built-in MAC', function(done) {
-    botan.generateRandomBytes('binary', 8192, function(error, bytes) {
+    cr.generateRandomBytes('binary', 8192, function(error, bytes) {
       bytes1 = bytes;
-      botan.encrypt(null, null, cipherKey, bytes, function(error, encrypted, mac) {
+      cr.encrypt(null, null, cipherKey, bytes, function(error, encrypted, mac) {
         should.not.exist(error);
         should.exist(encrypted);
         should.not.exist(mac);
@@ -340,14 +338,15 @@ describe('RSA key functions', function() {
   var encrypted3;
 
   it('should encrypt array data using AES-256/EAX with built-in MAC', function(done) {
-    botan.generateRandomBytes('binary', 1024, function(error, bytes) {
+    cr.generateRandomBytes('binary', 1024, function(error, bytes) {
       bytes3 = bytes;
-      botan.generateRandomBytes('binary', 1024, function(error, bytes) {
+      cr.generateRandomBytes('binary', 1024, function(error, bytes) {
         bytes4 = bytes;
-        botan.encrypt(null, null, cipherKey, [bytes3, bytes4], function(error, encrypted, mac) {
+        cr.encrypt(null, null, cipherKey, [bytes3, bytes4, null], function(error, encrypted, mac) {
           should.not.exist(error);
           should.exist(encrypted[0]);
           should.exist(encrypted[1]);
+          should.not.exist(encrypted[2]);
           should.not.exist(mac);
           encrypted3 = encrypted;
           done();
@@ -357,28 +356,28 @@ describe('RSA key functions', function() {
   });
 
   it('should fail to encrypt data using unknown cipher type', function(done) {
-    botan.encrypt("wendy", null, cipherKey, bytes1, function(error, encrypted, mac) {
+    cr.encrypt("wendy", null, cipherKey, bytes1, function(error, encrypted, mac) {
       should.exist(error);
       done();
     });
   });
 
   it('should fail to encrypt data using unknown mac type', function(done) {
-    botan.encrypt(null, "james", cipherKey, bytes1, function(error, encrypted, mac) {
+    cr.encrypt(null, "james", cipherKey, bytes1, function(error, encrypted, mac) {
       should.exist(error);
       done();
     });
   });
 
   it('should fail to encrypt data with short key', function(done) {
-    botan.encrypt(null, null, "123", bytes1, function(error, encrypted, mac) {
+    cr.encrypt(null, null, "123", bytes1, function(error, encrypted, mac) {
       should.exist(error);
       done();
     });
   });
 
   it('should decrypt data using AES-256/EAX with built-in MAC', function(done) {
-    botan.decrypt(null, null, cipherKey, encrypted1, function(error, decrypted, mac) {
+    cr.decrypt(null, null, cipherKey, encrypted1, function(error, decrypted, mac) {
       should.not.exist(error);
       should.exist(decrypted);
       should.not.exist(mac);
@@ -388,7 +387,7 @@ describe('RSA key functions', function() {
   });
 
   it('should decrypt array data using AES-256/EAX with built-in MAC', function(done) {
-    botan.decrypt(null, null, cipherKey, encrypted3, function(error, decrypted, mac) {
+    cr.decrypt(null, null, cipherKey, encrypted3, function(error, decrypted, mac) {
       should.not.exist(error);
       should.exist(decrypted[0]);
       should.exist(decrypted[1]);
@@ -403,7 +402,7 @@ describe('RSA key functions', function() {
   var mac2;
 
   it('should encrypt data using AES-256/CBC and produce HMAC(SHA-512)', function(done) {
-    botan.encrypt("AES-256/CBC", "HMAC(SHA-512)", cipherKey, bytes1, function(error, encrypted, mac) {
+    cr.encrypt("AES-256/CBC", "HMAC(SHA-512)", cipherKey, bytes1, function(error, encrypted, mac) {
       should.not.exist(error);
       should.exist(encrypted);
       should.exist(mac);
@@ -417,7 +416,7 @@ describe('RSA key functions', function() {
   var mac4;
 
   it('should encrypt array data using AES-256/CBC and produce HMAC(SHA-512)', function(done) {
-    botan.encrypt("AES-256/CBC", "HMAC(SHA-512)", cipherKey, [bytes3, bytes4], function(error, encrypted, mac) {
+    cr.encrypt("AES-256/CBC", "HMAC(SHA-512)", cipherKey, [bytes3, bytes4], function(error, encrypted, mac) {
       should.not.exist(error);
       should.exist(encrypted[0]);
       should.exist(encrypted[1]);
@@ -430,7 +429,7 @@ describe('RSA key functions', function() {
   });
 
   it('should decrypt data using AES-256/CBC and produce HMAC(SHA-512)', function(done) {
-    botan.decrypt("AES-256/CBC", "HMAC(SHA-512)", cipherKey, encrypted2, function(error, decrypted, mac) {
+    cr.decrypt("AES-256/CBC", "HMAC(SHA-512)", cipherKey, encrypted2, function(error, decrypted, mac) {
       should.not.exist(error);
       should.exist(decrypted);
       should.exist(mac);
@@ -441,7 +440,7 @@ describe('RSA key functions', function() {
   });
 
   it('should decrypt array data using AES-256/CBC and produce HMAC(SHA-512)', function(done) {
-    botan.decrypt("AES-256/CBC", "HMAC(SHA-512)", cipherKey, encrypted4, function(error, decrypted, mac) {
+    cr.decrypt("AES-256/CBC", "HMAC(SHA-512)", cipherKey, encrypted4, function(error, decrypted, mac) {
       should.not.exist(error);
       should.exist(decrypted[0]);
       should.exist(decrypted[1]);
@@ -456,7 +455,7 @@ describe('RSA key functions', function() {
   });
 
   it('should fail to decrypt data with short key', function(done) {
-    botan.decrypt(null, null, "123", bytes1, function(error, encrypted, mac) {
+    cr.decrypt(null, null, "123", bytes1, function(error, encrypted, mac) {
       should.exist(error);
       done();
     });
@@ -471,7 +470,7 @@ describe('MAC functions', function() {
   var fullLengthSha512 = 'q7dQBCd4Eq9sn3UgHSA8fpxKkaheO5fDADKNjxd6AmBH9kwQVppd046fzxpp0NQSpnTjzoEQFwnADUli/2g7bA==';
 
   it('should generate a HMAC(SHA-1) from string with buffer key', function(done) {
-    botan.generateMac('HMAC(SHA-1)', '1234567890', null, new Buffer('1234567890123456'), function(error, mac) {
+    cr.generateMac('HMAC(SHA-1)', '1234567890', null, new Buffer('1234567890123456'), function(error, mac) {
       should.not.exist(error);
       should.exist(mac);
       mac.should.equal(fullLengthSha1);
@@ -480,7 +479,7 @@ describe('MAC functions', function() {
   });
 
   it('should generate a HMAC(SHA-1) from string', function(done) {
-    botan.generateMac('HMAC(SHA-1)', '1234567890', null, '1234567890123456', function(error, mac) {
+    cr.generateMac('HMAC(SHA-1)', '1234567890', null, '1234567890123456', function(error, mac) {
       should.not.exist(error);
       should.exist(mac);
       mac.should.equal(fullLengthSha1);
@@ -489,7 +488,7 @@ describe('MAC functions', function() {
   });
 
   it('should generate a HMAC(SHA-1) from buffer', function(done) {
-    botan.generateMac('HMAC(SHA-1)', new Buffer('1234567890'), null, '1234567890123456', function(error, mac) {
+    cr.generateMac('HMAC(SHA-1)', new Buffer('1234567890'), null, '1234567890123456', function(error, mac) {
       should.not.exist(error);
       should.exist(mac);
       mac.should.equal(fullLengthSha1);
@@ -498,7 +497,7 @@ describe('MAC functions', function() {
   });
 
   it('should generate a HMAC(SHA-1) from string with specified length', function(done) {
-    botan.generateMac('HMAC(SHA-1)', '1234567890', 8, '1234567890123456', function(error, mac) {
+    cr.generateMac('HMAC(SHA-1)', '1234567890', 8, '1234567890123456', function(error, mac) {
       should.not.exist(error);
       should.exist(mac);
       mac.should.equal(partialLengthSha1);
@@ -507,7 +506,7 @@ describe('MAC functions', function() {
   });
 
   it('should generate a HMAC(SHA-1) from buffer with specified length', function(done) {
-    botan.generateMac('HMAC(SHA-1)', new Buffer('1234567890'), 8, '1234567890123456', function(error, mac) {
+    cr.generateMac('HMAC(SHA-1)', new Buffer('1234567890'), 8, '1234567890123456', function(error, mac) {
       should.not.exist(error);
       should.exist(mac);
       mac.should.equal(partialLengthSha1);
@@ -516,7 +515,7 @@ describe('MAC functions', function() {
   });
 
   it('should generate a HMAC(SHA-256) from string', function(done) {
-    botan.generateMac('HMAC(SHA-256)', '1234567890', null, '12345678901234561234567890123456', function(error, mac) {
+    cr.generateMac('HMAC(SHA-256)', '1234567890', null, '12345678901234561234567890123456', function(error, mac) {
       should.not.exist(error);
       should.exist(mac);
       mac.should.equal(fullLengthSha256);
@@ -525,7 +524,7 @@ describe('MAC functions', function() {
   });
 
   it('should generate a HMAC(SHA-256) from buffer', function(done) {
-    botan.generateMac('HMAC(SHA-256)', new Buffer('1234567890'), null, '12345678901234561234567890123456', function(error, mac) {
+    cr.generateMac('HMAC(SHA-256)', new Buffer('1234567890'), null, '12345678901234561234567890123456', function(error, mac) {
       should.not.exist(error);
       should.exist(mac);
       mac.should.equal(fullLengthSha256);
@@ -534,7 +533,7 @@ describe('MAC functions', function() {
   });
 
   it('should generate a HMAC(SHA-512) from string', function(done) {
-    botan.generateMac('HMAC(SHA-512)', '1234567890', null, '1234567890123456123456789012345612345678901234561234567890123456', function(error, mac) {
+    cr.generateMac('HMAC(SHA-512)', '1234567890', null, '1234567890123456123456789012345612345678901234561234567890123456', function(error, mac) {
       should.not.exist(error);
       should.exist(mac);
       mac.should.equal(fullLengthSha512);
@@ -543,7 +542,7 @@ describe('MAC functions', function() {
   });
 
   it('should generate a HMAC(SHA-512) from buffer', function(done) {
-    botan.generateMac('HMAC(SHA-512)', new Buffer('1234567890'), null, '1234567890123456123456789012345612345678901234561234567890123456', function(error, mac) {
+    cr.generateMac('HMAC(SHA-512)', new Buffer('1234567890'), null, '1234567890123456123456789012345612345678901234561234567890123456', function(error, mac) {
       should.not.exist(error);
       should.exist(mac);
       mac.should.equal(fullLengthSha512);
@@ -556,7 +555,7 @@ describe('MAC functions', function() {
 describe('Hash functions', function() {
 
   it('should generate a SHA-512 hash with complete buffer', function(done) {
-    botan.initialiseHash('SHA-512', function(error, hash) {
+    cr.initialiseHash('SHA-512', function(error, hash) {
       should.not.exist(error);
       should.exist(hash);
       var buffer = new Buffer(100);
@@ -573,7 +572,7 @@ describe('Hash functions', function() {
   });
 
   it('should generate a SHA-256 hash with complete buffer', function(done) {
-    botan.initialiseHash('SHA-256', function(error, hash) {
+    cr.initialiseHash('SHA-256', function(error, hash) {
       should.not.exist(error);
       should.exist(hash);
       var buffer = new Buffer(100);
@@ -590,7 +589,7 @@ describe('Hash functions', function() {
   });
 
   it('should generate a SHA-512 hash with string', function(done) {
-    botan.initialiseHash('SHA-512', function(error, hash) {
+    cr.initialiseHash('SHA-512', function(error, hash) {
       should.not.exist(error);
       should.exist(hash);
       hash.update('test data', 9, function(error) {
@@ -605,7 +604,7 @@ describe('Hash functions', function() {
   });
 
   it('should generate a SHA-256 hash with string', function(done) {
-    botan.initialiseHash('SHA-256', function(error, hash) {
+    cr.initialiseHash('SHA-256', function(error, hash) {
       should.not.exist(error);
       should.exist(hash);
       hash.update('test data', 9, function(error) {
@@ -627,7 +626,7 @@ describe('PBKDF functions', function() {
   var derivedKey1;
 
   it('should generate a derived key (with salt) for supplied passphrase', function(done) {
-    botan.generatePbkdf('PBKDF2(SHA-512)', 'test123', null, ITERATIONS, function(error, derivedKey, salt) {
+    cr.generatePbkdf('PBKDF2(SHA-512)', 'test123', null, ITERATIONS, function(error, derivedKey, salt) {
       should.not.exist(error);
       should.exist(derivedKey);
       should.exist(salt);
@@ -638,7 +637,7 @@ describe('PBKDF functions', function() {
   });
 
   it('should generate a derived key for supplied password and salt', function(done) {
-    botan.generatePbkdf('PBKDF2(SHA-512)', 'test123', salt1, ITERATIONS, function(error, derivedKey, salt) {
+    cr.generatePbkdf('PBKDF2(SHA-512)', 'test123', salt1, ITERATIONS, function(error, derivedKey, salt) {
       should.not.exist(error);
       should.exist(derivedKey);
       derivedKey.should.equal(derivedKey1);
@@ -648,23 +647,27 @@ describe('PBKDF functions', function() {
 
 });
 
+describe('AES functions', function() {
+
+});
+
 describe('Codec functions', function() {
 
   it('should encode base64 synchronously', function(done) {
-    botan.generateRandomBytes('binary', 20, function(error, bytes) {
+    cr.generateRandomBytes('binary', 20, function(error, bytes) {
       should.not.exist(error);
       should.exist(bytes);
-      var encoding = botan.encodeSync('base64', bytes);
+      var encoding = cr.encodeSync('base64', bytes);
       should.exist(encoding);
       done();
     });
   });
 
   it('should encode base64', function(done) {
-    botan.generateRandomBytes('binary', 20, function(error, bytes) {
+    cr.generateRandomBytes('binary', 20, function(error, bytes) {
       should.not.exist(error);
       should.exist(bytes);
-      botan.encode('base64', bytes, function(error, encoding) {
+      cr.encode('base64', bytes, function(error, encoding) {
         should.not.exist(error);
         should.exist(encoding);
         done();
@@ -673,20 +676,20 @@ describe('Codec functions', function() {
   });
 
   it('should encode hex synchronously', function(done) {
-    botan.generateRandomBytes('binary', 20, function(error, bytes) {
+    cr.generateRandomBytes('binary', 20, function(error, bytes) {
       should.not.exist(error);
       should.exist(bytes);
-      var encoding = botan.encodeSync('hex', bytes);
+      var encoding = cr.encodeSync('hex', bytes);
       should.exist(encoding);
       done();
     });
   });
 
   it('should encode hex', function(done) {
-    botan.generateRandomBytes('binary', 20, function(error, bytes) {
+    cr.generateRandomBytes('binary', 20, function(error, bytes) {
       should.not.exist(error);
       should.exist(bytes);
-      botan.encode('hex', bytes, function(error, encoding) {
+      cr.encode('hex', bytes, function(error, encoding) {
         should.not.exist(error);
         should.exist(encoding);
         done();
@@ -695,21 +698,21 @@ describe('Codec functions', function() {
   });
 
   it('should fail to encode into unsupported codec', function(done) {
-    botan.generateRandomBytes('binary', 20, function(error, bytes) {
+    cr.generateRandomBytes('binary', 20, function(error, bytes) {
       should.not.exist(error);
       should.exist(bytes);
-      (function() { botan.encode('myrhh', bytes, function(error, encoding) {}); }).should.throw();
+      (function() { cr.encode('myrhh', bytes, function(error, encoding) {}); }).should.throw();
       done();
     });
   });
 
   it('should decode base64 synchronously', function(done) {
-    botan.generateRandomBytes('binary', 20, function(error, bytes) {
+    cr.generateRandomBytes('binary', 20, function(error, bytes) {
       should.not.exist(error);
       should.exist(bytes);
-      var encoding = botan.encodeSync('base64', bytes);
+      var encoding = cr.encodeSync('base64', bytes);
       should.exist(encoding);
-      var decoding = botan.decodeSync('base64', encoding);
+      var decoding = cr.decodeSync('base64', encoding);
       should.exist(decoding);
       bytes.toString('base64').should.equal(decoding.toString('base64'));
       done();
@@ -717,13 +720,13 @@ describe('Codec functions', function() {
   });
 
   it('should decode base64', function(done) {
-    botan.generateRandomBytes('binary', 20, function(error, bytes) {
+    cr.generateRandomBytes('binary', 20, function(error, bytes) {
       should.not.exist(error);
       should.exist(bytes);
-      botan.encode('base64', bytes, function(error, encoding) {
+      cr.encode('base64', bytes, function(error, encoding) {
         should.not.exist(error);
         should.exist(encoding);
-        botan.decode('base64', encoding, function(error, decoding) {
+        cr.decode('base64', encoding, function(error, decoding) {
           should.not.exist(error);
           should.exist(decoding);
           bytes.toString('base64').should.equal(decoding.toString('base64'));
@@ -734,12 +737,12 @@ describe('Codec functions', function() {
   });
 
   it('should decode hex synchronously', function(done) {
-    botan.generateRandomBytes('binary', 20, function(error, bytes) {
+    cr.generateRandomBytes('binary', 20, function(error, bytes) {
       should.not.exist(error);
       should.exist(bytes);
-      var encoding = botan.encodeSync('hex', bytes);
+      var encoding = cr.encodeSync('hex', bytes);
       should.exist(encoding);
-      var decoding = botan.decodeSync('hex', encoding);
+      var decoding = cr.decodeSync('hex', encoding);
       should.exist(decoding);
       bytes.toString('hex').should.equal(decoding.toString('hex'));
       done();
@@ -747,13 +750,13 @@ describe('Codec functions', function() {
   });
 
   it('should decode hex', function(done) {
-    botan.generateRandomBytes('binary', 20, function(error, bytes) {
+    cr.generateRandomBytes('binary', 20, function(error, bytes) {
       should.not.exist(error);
       should.exist(bytes);
-      botan.encode('hex', bytes, function(error, encoding) {
+      cr.encode('hex', bytes, function(error, encoding) {
         should.not.exist(error);
         should.exist(encoding);
-        botan.decode('hex', encoding, function(error, decoding) {
+        cr.decode('hex', encoding, function(error, decoding) {
           should.not.exist(error);
           should.exist(decoding);
           bytes.toString('hex').should.equal(decoding.toString('hex'));
@@ -764,7 +767,7 @@ describe('Codec functions', function() {
   });
 
   it('should fail to decode unsupported codec', function(done) {
-    (function() { botan.decode('myrhh', 'gold', function(error, decoding) {}); }).should.throw();
+    (function() { cr.decode('myrhh', 'gold', function(error, decoding) {}); }).should.throw();
     done();
   });
 
@@ -773,7 +776,7 @@ describe('Codec functions', function() {
 describe('Random functions', function() {
 
   it('should generate 4 digits', function(done) {
-    botan.generateRandomDigits(4, function(error, digits) {
+    cr.generateRandomDigits(4, function(error, digits) {
       should.not.exist(error);
       should.exist(digits);
       digits.length.should.equal(4);
@@ -782,7 +785,7 @@ describe('Random functions', function() {
   });
 
   it('should generate 8 digits', function(done) {
-    botan.generateRandomDigits(8, function(error, digits) {
+    cr.generateRandomDigits(8, function(error, digits) {
       should.not.exist(error);
       should.exist(digits);
       digits.length.should.equal(8);
@@ -791,12 +794,12 @@ describe('Random functions', function() {
   });
 
   it('should fail to generate 0 bytes', function(done) {
-    (function() { botan.generateRandomDigits(0, function(error, bytes) {}); }).should.throw();
+    (function() { cr.generateRandomDigits(0, function(error, bytes) {}); }).should.throw();
     done();
   });
 
   it('should generate 20 bytes in binary', function(done) {
-    botan.generateRandomBytes('binary', 20, function(error, bytes) {
+    cr.generateRandomBytes('binary', 20, function(error, bytes) {
       should.not.exist(error);
       should.exist(bytes);
       bytes.length.should.equal(20);
@@ -809,7 +812,7 @@ describe('Random functions', function() {
   };
 
   it('should generate 20 bytes in base64', function(done) {
-    botan.generateRandomBytes('base64', 20, function(error, bytes) {
+    cr.generateRandomBytes('base64', 20, function(error, bytes) {
       should.not.exist(error);
       should.exist(bytes);
       bytes.length.should.equal(base64Length(20));
@@ -818,7 +821,7 @@ describe('Random functions', function() {
   });
 
   it('should generate 20 bytes in hex', function(done) {
-    botan.generateRandomBytes('hex', 20, function(error, bytes) {
+    cr.generateRandomBytes('hex', 20, function(error, bytes) {
       should.not.exist(error);
       should.exist(bytes);
       bytes.length.should.equal(40);
@@ -827,12 +830,12 @@ describe('Random functions', function() {
   });
 
   it('should fail to generate 0 bytes', function(done) {
-    (function() { botan.generateRandomBytes('binary', 0, function(error, bytes) {}); }).should.throw();
+    (function() { cr.generateRandomBytes('binary', 0, function(error, bytes) {}); }).should.throw();
     done();
   });
 
   it('should fail to generate 20 bytes of unsupported encoding', function(done) {
-    (function() { botan.generateRandomBytes('myrhh', 20, function(error, bytes) {}); }).should.throw();
+    (function() { cr.generateRandomBytes('myrhh', 20, function(error, bytes) {}); }).should.throw();
     done();
   });
 */
